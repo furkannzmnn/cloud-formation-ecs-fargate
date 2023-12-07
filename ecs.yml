@@ -14,10 +14,10 @@ Parameters:
     Default: SnoraService
   ContainerPort:
     Type: Number
-    Default: 80
+    Default: 8080
   LoadBalancerPort:
     Type: Number
-    Default: 443
+    Default: 8080
   HealthCheckPath:
     Type: String
     Default: /
@@ -32,12 +32,12 @@ Parameters:
     Default: 50
 Resources:
   Cluster:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Join ['', [!Ref ServiceName, Cluster]]
   TaskDefinition:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::ECS::TaskDefinition
     DependsOn: LogGroup
     Properties:
@@ -58,6 +58,10 @@ Resources:
       # Between 4GB and 16GB in 1GB increments - Available cpu values: 2048 (2 vCPU)
       # Between 8GB and 30GB in 1GB increments - Available cpu values: 4096 (4 vCPU)
       Memory: 4GB
+      # amd64 tanımla
+      RuntimePlatform:
+        CpuArchitecture: ARM64
+        OperatingSystemFamily: LINUX
 
       ExecutionRoleArn: !Ref ExecutionRole
       TaskRoleArn: !Ref TaskRole
@@ -74,7 +78,7 @@ Resources:
               awslogs-stream-prefix: ecs
   # A role needed by ECS
   ExecutionRole:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Join ['', [!Ref ServiceName, ExecutionRole]]
@@ -87,7 +91,7 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
   TaskRole:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Join ['', [!Ref ServiceName, TaskRole]]
@@ -99,7 +103,7 @@ Resources:
             Action: 'sts:AssumeRole'
 
   AutoScalingRole:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Join ['', [!Ref ServiceName, AutoScalingRole]]
@@ -112,7 +116,7 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole'
   ContainerSecurityGroup:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: !Join ['', [!Ref ServiceName, ContainerSecurityGroup]]
@@ -123,7 +127,7 @@ Resources:
           ToPort: !Ref ContainerPort
           SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
   LoadBalancerSecurityGroup:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: !Join ['', [!Ref ServiceName, LoadBalancerSecurityGroup]]
@@ -134,7 +138,7 @@ Resources:
           ToPort: !Ref LoadBalancerPort
           CidrIp: 0.0.0.0/0
   Service:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::ECS::Service
     DependsOn:
       - ListenerHTTP
@@ -161,7 +165,7 @@ Resources:
           ContainerPort: !Ref ContainerPort
           TargetGroupArn: !Ref TargetGroup
   TargetGroup:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       HealthCheckIntervalSeconds: 10
@@ -178,7 +182,7 @@ Resources:
       TargetType: ip
       VpcId: !Ref VPC
   ListenerHTTP:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
@@ -189,7 +193,7 @@ Resources:
       Protocol: HTTP
 
   LoadBalancer:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       LoadBalancerAttributes:
@@ -204,12 +208,12 @@ Resources:
         - !Ref SubnetB
 
   LogGroup:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Join ['', [/ecs/, !Ref ServiceName, TaskDefinition]]
   AutoScalingTarget:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
       MinCapacity: !Ref MinContainers
@@ -219,7 +223,7 @@ Resources:
       ServiceNamespace: ecs
       RoleARN: !GetAtt AutoScalingRole.Arn
   AutoScalingPolicy:
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
       PolicyName: !Join ['', [!Ref ServiceName, AutoScalingPolicy]]
@@ -238,7 +242,7 @@ Outputs:
         Value: !GetAtt LoadBalancer.DNSName
     LoadBalancerURL:
         Description: URL of the load balancer
-        Value: !Join ['', ['https://', !GetAtt LoadBalancer.DNSName]]
+        Value: !Join ['', ['http://', !GetAtt LoadBalancer.DNSName]]
     ClusterName:
         Description: Name of the ECS cluster
         Value: !Ref Cluster
